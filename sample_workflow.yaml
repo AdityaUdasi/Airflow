@@ -1,0 +1,61 @@
+name: airflowwf
+version: v1
+type: workflow
+tags:
+  - assignment
+  - demo
+description: TO ingest s3 data
+workflow:
+  title: s3 data ingest
+  dag:
+    - name: s3doctorwf
+      description: Job is to read csv from s3 to dataos.
+      title: doctor s3 data ingester
+      spec:
+        tags:
+          - s3
+          - doctor
+        stack: flare:4.0
+        compute: runnable-default
+        stackSpec:
+          job:
+            explain: true
+            inputs:
+             - name: inputdata
+               dataset: dataos://tests3:none/Doctor.csv
+               format: csv
+               options:
+                  headers: true
+                  
+            logLevel: INFO
+
+            
+            outputs:
+              - name: opquery
+                dataset: dataos://icebase:airflow/doctor?acl=rw
+                format: Iceberg
+                description: doctor data ingested from s3
+                options:
+                  saveMode: overwrite
+                tags:
+                  - s3
+                  - doctor
+                title: doctor s3
+
+            steps:
+              - sequence:
+                - name: opquery
+                  sql: select * from inputdata       
+    
+    - name: doctortb
+      spec:
+        stack: toolbox
+        compute: runnable-default
+        stackSpec:
+          dataset: dataos://icebase:airflow/doctor?acl=rw
+          action:
+            name: set_version
+            value: latest
+
+      dependencies:
+        - s3doctorwf
